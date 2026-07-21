@@ -1,0 +1,876 @@
+import React, { useState } from 'react';
+import { 
+  Video, 
+  Sparkles, 
+  Clock, 
+  Copy, 
+  CheckCheck, 
+  Loader2, 
+  AlertCircle,
+  FileText,
+  Volume2,
+  Camera,
+  Type,
+  MessageSquare,
+  Lock,
+  User,
+  LogOut,
+  Crown,
+  MonitorPlay,
+  Image as ImageIcon,
+  Upload,
+  X,
+  Film
+} from 'lucide-react';
+
+// Fungsi bantuan untuk membuat scene cadangan jika API utama sedang sibuk atau mengalami limitasi
+const generateFallbackScenes = (topic, audience, style, sceneCount, niche) => {
+  const scenes = [];
+  const stylesInfo = {
+    'Sinematik': 'Pencahayaan dramatis, warna kontras tinggi, depth of field dangkal, transisi lambat yang anggun.',
+    'Vlog Kasual': 'Kamera dipegang tangan (handheld), bergerak aktif, pencahayaan natural, gaya interaktif langsung ke lensa.',
+    'Animasi 2D': 'Gaya flat design modern, warna-warna cerah pastel, transisi kartun yang dinamis dan mulus.',
+    'Animasi 3D': 'Visual 3D realistis atau gaya kartun Pixar/Disney, pencahayaan volumetrik, tekstur detail.',
+    'Minimalis': 'Ruang kosong bersih (negative space), palet warna netral/monokrom, transisi slide sederhana.',
+    'Energik': 'Transisi potong cepat (quick cuts), warna neon berani, pergerakan kamera cepat (crash zoom/whip pan).',
+    'Retro': 'Filter VHS atau film analog, warna pudar (faded), grain kasar, transisi light leak.',
+    'Moody': 'Pencahayaan low-key, bayangan pekat, tone warna dingin atau kebiruan, suasana misterius.',
+    'Cyberpunk': 'Cahaya neon kontras (pink/biru), suasana kota malam, efek glitch, futuristik.',
+    'Dokumenter': 'Pencahayaan natural, komposisi rule of thirds, pergerakan kamera stabil dan observasional.'
+  };
+
+  const styleDesc = stylesInfo[style] || stylesInfo['Sinematik'];
+  const nicheContext = niche && niche !== 'Umum' ? ` untuk audiens pecinta ${niche}` : '';
+
+  for (let i = 1; i <= sceneCount; i++) {
+    let role = "Isi Konten Utama";
+    let text = `Fakta menarik tentang ${topic}`;
+    let dialogText = `Nah, bagian penting dari ${topic} yang wajib banget kalian catat adalah poin yang satu ini...`;
+    
+    if (i === 1) {
+      role = "Hook (Penarik Perhatian)";
+      text = `Hai ${audience}! Tahukah kamu rahasia ${topic}?`;
+      dialogText = `Hai para ${audience}! Pernah nggak sih kalian kepikiran rahasia tersembunyi di balik ${topic}? Yuk kita bahas!`;
+    } else if (i === sceneCount) {
+      role = "Call to Action (Penutup)";
+      text = `Follow & bagikan video ini untuk info ${topic} lainnya!`;
+      dialogText = `Kira-kira tips apa lagi ya yang seru? Tulis di kolom komentar, jangan lupa follow dan share video ini ke teman kalian!`;
+    }
+
+    scenes.push({
+      sceneNumber: i,
+      title: role,
+      visualPrompt: `Visual detail berfokus pada elemen ${topic}${nicheContext}. ${styleDesc}`,
+      cameraMovement: i % 2 === 0 ? "Pan perlahan dari kiri ke kanan (Slow Pan)" : "Zoom in secara halus untuk mengunci fokus penonton (Slow Zoom)",
+      textOverlay: text,
+      dialog: dialogText,
+      audioSfx: "Musik latar bertempo sedang yang estetik, ditambah efek transisi suara 'Swoosh' halus."
+    });
+  }
+
+  return {
+    title: `Panduan Video Kreatif: ${topic}`,
+    scenes: scenes
+  };
+};
+
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginId, setLoginId] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (loginId === 'babayong' && loginPassword === 'babayong123') {
+      setIsLoggedIn(true);
+      setLoginError('');
+    } else {
+      setLoginError('ID atau Kata Sandi salah! Akses ditolak.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setLoginId('');
+    setLoginPassword('');
+    setResult(null); 
+  };
+
+  const [topic, setTopic] = useState('');
+  const [audience, setAudience] = useState('');
+  const [style, setStyle] = useState('Sinematik');
+  const [niche, setNiche] = useState('Umum'); 
+  const [mediaFiles, setMediaFiles] = useState([]); 
+  const [fileError, setFileError] = useState('');
+  const [sceneCount, setSceneCount] = useState(3);
+  
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  
+  // State untuk melacak status tersalin dari masing-masing tombol
+  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
+
+  const apiKey = ""; // API key is injected by the environment
+
+  // Fungsi salin
+  const executeCopy = (text, onSuccess) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          onSuccess();
+        })
+        .catch((err) => {
+          console.warn("Clipboard API gagal, mencoba metode alternatif...", err);
+          runFallbackCopy(text, onSuccess);
+        });
+    } else {
+      runFallbackCopy(text, onSuccess);
+    }
+  };
+
+  const runFallbackCopy = (text, onSuccess) => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      
+      textArea.style.position = 'fixed';
+      textArea.style.top = '-9999px';
+      textArea.style.left = '-9999px';
+      textArea.style.width = '2em';
+      textArea.style.height = '2em';
+      textArea.style.padding = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+      
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      if (successful) {
+        onSuccess();
+      } else {
+        console.error("Gagal menyalin menggunakan perintah execCommand.");
+      }
+      document.body.removeChild(textArea);
+    } catch (err) {
+      console.error("Semua metode salin gagal diterapkan:", err);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const maxSize = 10 * 1024 * 1024; // Maksimal 10MB per file
+
+    let errorMsg = '';
+    const validFiles = [];
+
+    files.forEach(file => {
+      if (file.size > maxSize) {
+        errorMsg = `File "${file.name}" terlalu besar (Maks 10MB).`;
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errorMsg) setFileError(errorMsg);
+    else setFileError('');
+
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result;
+        const base64Data = result.split(',')[1];
+        setMediaFiles(prev => [...prev, {
+          name: file.name,
+          type: file.type,
+          preview: result,
+          base64Data: base64Data,
+          isImage: file.type.startsWith('image/')
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset input agar bisa memilih file yang sama lagi jika dihapus
+    e.target.value = null;
+  };
+
+  const removeMedia = (index) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const generateWithAI = async () => {
+    setIsGenerating(true);
+    setError('');
+    setResult(null);
+
+    const promptText = `
+      Anda adalah asisten sutradara dan pembuat prompt untuk editor video profesional. 
+      Tugas Anda adalah membuat panduan editing/prompt video pendek dengan:
+      Topik: "${topic}"
+      Kategori/Niche Kreator: "${niche}"
+      Target Audiens: "${audience || 'Umum'}"
+      Gaya Visual: "${style}"
+      ${mediaFiles.length > 0 ? `PERHATIAN: Pengguna juga telah melampirkan gambar/video. Analisis media yang dilampirkan ini dan gunakan sebagai referensi utama untuk objek, warna, pencahayaan, atau suasana di dalam visual prompt setiap scene.` : ''}
+      Jumlah Scene: ${sceneCount}
+      
+      ATURAN MUTLAK: SETIAP scene HARUS dan HANYA berdurasi tepat 10 detik.
+      
+      Pastikan naskah/dialog, pilihan kata, dan referensi visual SANGAT RELEVAN dengan Kategori/Niche Kreator "${niche}". 
+      Misalnya, jika nichenya 'Otomotif', gunakan istilah otomotif; jika 'Kuliner', fokus pada deskripsi rasa dan tampilan makanan.
+      
+      Berikan output HANYA dalam format JSON valid dengan struktur persis seperti ini:
+      {
+        "title": "Judul Ide Video",
+        "scenes": [
+          {
+            "sceneNumber": 1,
+            "title": "Peran Scene (misal: Hook, Penjelasan, CTA)",
+            "visualPrompt": "Deskripsi visual yang sangat detail (warna, objek, suasana)",
+            "cameraMovement": "Instruksi pergerakan kamera (misal: Tracking shot, Fast zoom)",
+            "textOverlay": "Teks spesifik singkat yang muncul di layar",
+            "dialog": "Naskah narasi atau dialog lengkap yang diucapkan oleh talent/voiceover (sesuaikan gaya bahasa dengan audiens target secara persuasif)",
+            "audioSfx": "Musik latar dan efek suara spesifik"
+          }
+        ]
+      }
+    `;
+
+    // Siapkan array parts untuk menampung teks dan media
+    const promptParts = [{ text: promptText }];
+    
+    // Masukkan data media ke dalam format yang diterima Gemini
+    mediaFiles.forEach(file => {
+      promptParts.push({
+        inlineData: {
+          mimeType: file.type,
+          data: file.base64Data
+        }
+      });
+    });
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const payload = {
+      contents: [{ parts: promptParts }],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    };
+
+    const delays = [1000, 2000, 4000, 8000, 16000];
+    let success = false;
+
+    for (let i = 0; i < 5; i++) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error('Network error');
+
+        const data = await response.json();
+        const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (jsonText) {
+          setResult(JSON.parse(jsonText));
+          success = true;
+          break;
+        }
+      } catch (err) {
+        if (i < 4) {
+          await new Promise(r => setTimeout(r, delays[i]));
+        }
+      }
+    }
+
+    if (!success) {
+      console.log("AI API gagal, beralih ke generator lokal otomatis.");
+      setResult(generateFallbackScenes(topic, audience || 'Umum', style, sceneCount, niche));
+    }
+    
+    setIsGenerating(false);
+  };
+
+  const handleGenerate = (e) => {
+    e.preventDefault();
+    if (!topic.trim()) {
+      setError('Mohon masukkan topik utama video terlebih dahulu.');
+      return;
+    }
+    generateWithAI();
+  };
+
+  const copyAllPrompts = () => {
+    if (!result) return;
+    let fullText = `JUDUL VIDEO: ${result.title}\n`;
+    fullText += `Kategori/Niche: ${niche} | Gaya Visual: ${style} | Target: ${audience || 'Umum'}\n`;
+    fullText += `Total Durasi: ${result.scenes.length * 10} detik\n\n`;
+
+    result.scenes.forEach(scene => {
+      const startTime = (scene.sceneNumber - 1) * 10;
+      const endTime = scene.sceneNumber * 10;
+      const timeFormat = `0:${startTime.toString().padStart(2, '0')} - 0:${endTime.toString().padStart(2, '0')}`;
+      
+      fullText += `================ SCENE ${scene.sceneNumber} (${timeFormat}) ================\n`;
+      fullText += `Peran/Fungsi: ${scene.title}\n`;
+      fullText += `• Visual Prompt : ${scene.visualPrompt}\n`;
+      fullText += `• Kamera/Movement : ${scene.cameraMovement}\n`;
+      if (scene.dialog) {
+        fullText += `• Dialog/Voiceover : "${scene.dialog}"\n`;
+      }
+      fullText += `• Teks Overlay : "${scene.textOverlay}"\n`;
+      fullText += `• Audio & SFX : ${scene.audioSfx}\n\n`;
+    });
+
+    executeCopy(fullText, () => {
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2000);
+    });
+  };
+
+  const copySinglePrompt = (scene, index) => {
+    const startTime = (scene.sceneNumber - 1) * 10;
+    const endTime = scene.sceneNumber * 10;
+    const timeFormat = `0:${startTime.toString().padStart(2, '0')} - 0:${endTime.toString().padStart(2, '0')}`;
+
+    let text = `SCENE ${scene.sceneNumber} (${timeFormat}) - ${scene.title}\n`;
+    text += `Visual: ${scene.visualPrompt}\n`;
+    text += `Kamera: ${scene.cameraMovement}\n`;
+    if (scene.dialog) {
+      text += `Dialog/VO: "${scene.dialog}"\n`;
+    }
+    text += `Teks Overlay: "${scene.textOverlay}"\n`;
+    text += `Audio: ${scene.audioSfx}`;
+
+    executeCopy(text, () => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    });
+  };
+
+  const copyField = (text, fieldId) => {
+    executeCopy(text, () => {
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 selection:bg-blue-500 selection:text-white font-sans relative overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div className="max-w-md w-full bg-slate-800/80 backdrop-blur-xl p-8 rounded-3xl border border-slate-700 shadow-2xl z-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center p-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl mb-4 shadow-lg shadow-blue-500/30">
+              <Crown className="w-12 h-12 text-white" />
+            </div>
+            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mb-2">
+              DAFA AI KONTEN KREATOR
+            </h1>
+            <p className="text-slate-400 text-sm">
+              Silakan login untuk mengakses tools pembuat naskah & prompt video otomatis.
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-400" />
+                ID Pengguna
+              </label>
+              <input
+                type="text"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="Masukkan ID"
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-100 placeholder:text-slate-600"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-indigo-400" />
+                Kata Sandi
+              </label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-100 placeholder:text-slate-600"
+              />
+            </div>
+
+            {loginError && (
+              <div className="flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20 text-sm animate-pulse">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <p>{loginError}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] mt-2"
+            >
+              Masuk ke Aplikasi
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8 font-sans selection:bg-blue-500 selection:text-white">
+      {/* Header Navigasi DAFA AI */}
+      <div className="max-w-5xl mx-auto flex justify-between items-center mb-8 bg-slate-800 border border-slate-700 p-4 rounded-2xl shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-500/20 rounded-lg">
+            <Crown className="w-6 h-6 text-blue-400" />
+          </div>
+          <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 tracking-wide hidden sm:inline-block">
+            DAFA AI KONTEN KREATOR
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-slate-400 hidden sm:block">
+            Halo, <span className="text-indigo-400 font-semibold">{loginId}</span>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm bg-slate-700 hover:bg-red-500/20 text-slate-300 hover:text-red-400 px-4 py-2 rounded-xl transition-all border border-slate-600 hover:border-red-500/30"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Keluar</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto space-y-8">
+        
+        {/* Header Section */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center p-3 bg-blue-500/10 rounded-2xl mb-2">
+            <Video className="w-10 h-10 text-blue-400 animate-pulse" />
+          </div>
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">
+            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Editor Prompt
+            </span> Generator
+          </h1>
+          <p className="text-slate-400 max-w-xl mx-auto text-sm md:text-base">
+            Otomatisasi pembuatan naskah, dialog, dan instruksi editing video dengan presisi durasi 
+            <strong className="text-indigo-400 font-semibold"> 10 detik per scene</strong>. Sempurna untuk TikTok, Reels, dan Shorts.
+          </p>
+        </div>
+
+        {/* Input Form */}
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 md:p-8 shadow-xl">
+          <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-400" />
+                Topik Utama Video
+              </label>
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Misal: 3 Trik Psikologi Jualan Laris Manis"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-100 placeholder:text-slate-600"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <MonitorPlay className="w-4 h-4 text-purple-400" />
+                Kategori / Niche Kreator
+              </label>
+              <select
+                value={niche}
+                onChange={(e) => setNiche(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-slate-100 appearance-none cursor-pointer"
+              >
+                <option value="Umum">Umum / Lainnya</option>
+                <option value="Edukasi & Tutorial">Edukasi & Tutorial (Tips, Trik, Pengetahuan)</option>
+                <option value="Bisnis & Keuangan">Bisnis & Keuangan (Marketing, Saham, Crypto)</option>
+                <option value="Teknologi & Gadget">Teknologi & Gadget (Review, Unboxing, IT)</option>
+                <option value="Kecantikan & Fashion">Kecantikan & Fashion (Skincare, Makeup, OOTD)</option>
+                <option value="Kuliner & Memasak">Kuliner & Memasak (Resep, Review Makanan)</option>
+                <option value="Kesehatan & Kebugaran">Kesehatan & Kebugaran (Olahraga, Diet, Mental Health)</option>
+                <option value="Hiburan & Komedi">Hiburan & Komedi (Sketsa, Prank, Storytelling)</option>
+                <option value="Gaming & Esports">Gaming & Esports (Gameplay, Review Game, Livestream Highlight)</option>
+                <option value="Traveling & Lifestyle">Traveling & Lifestyle (Vlog Liburan, Aesthetic Life)</option>
+                <option value="Otomotif">Otomotif (Review Mobil/Motor, Tips Perawatan)</option>
+                <option value="Seni & Desain">Seni & Desain (Menggambar, DIY, Crafting)</option>
+                <option value="Motivasi & Pengembangan Diri">Motivasi & Pengembangan Diri (Inspirasi, Mindset)</option>
+              </select>
+            </div>
+
+            {/* Unggah Media */}
+            <div className="space-y-3 md:col-span-2 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+              <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Upload className="w-4 h-4 text-sky-400" />
+                Unggah File Referensi (Gambar/Video Maks 10MB) - Opsional
+              </label>
+              
+              <div className="flex items-center gap-4">
+                <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-4 py-2.5 rounded-lg transition-all flex items-center gap-2 text-sm font-medium">
+                  <Upload className="w-4 h-4" />
+                  Pilih File
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*,video/mp4,video/webm" 
+                    multiple 
+                    onChange={handleFileUpload}
+                  />
+                </label>
+                <span className="text-xs text-slate-500">
+                  Didukung: JPG, PNG, WEBP, MP4
+                </span>
+              </div>
+
+              {fileError && (
+                <p className="text-red-400 text-xs mt-1">{fileError}</p>
+              )}
+
+              {/* Gallery Preview Media */}
+              {mediaFiles.length > 0 && (
+                <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-slate-700/50">
+                  {mediaFiles.map((file, idx) => (
+                    <div key={idx} className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-600 bg-slate-800 flex items-center justify-center">
+                      {file.isImage ? (
+                        <img src={file.preview} alt="preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <Film className="w-8 h-8 text-slate-400" />
+                          <span className="text-[10px] text-slate-400 truncate w-20 text-center px-1">Video</span>
+                        </div>
+                      )}
+                      
+                      <button 
+                        type="button"
+                        onClick={() => removeMedia(idx)}
+                        className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Hapus media"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Target Audiens</label>
+              <input
+                type="text"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+                placeholder="Misal: Kreator Pemula / Anak Muda"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-100 placeholder:text-slate-600"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Gaya Visual</label>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-100 appearance-none cursor-pointer"
+              >
+                <option value="Sinematik">Sinematik (Dramatis, High Quality, Bokeh)</option>
+                <option value="Vlog Kasual">Vlog Kasual (Handheld, Natural, Otentik)</option>
+                <option value="Animasi 2D">Animasi 2D & Motion Graphics (Flat, Colorful)</option>
+                <option value="Animasi 3D">Animasi 3D (Realistis / Gaya Pixar)</option>
+                <option value="Minimalis">Minimalis & Estetik (Bersih, Soft Tone)</option>
+                <option value="Energik">Energik (Cepat, Dinamis, Hyper-editing)</option>
+                <option value="Retro">Retro / Vintage (VHS, Sepia, Nostalgia 90an)</option>
+                <option value="Moody">Dark & Moody (Low Key, Misterius, Kontras)</option>
+                <option value="Cyberpunk">Cyberpunk / Neon (Futuristik, Cahaya Neon, Glow)</option>
+                <option value="Dokumenter">Dokumenter (Realistis, Stabil, Observasional)</option>
+              </select>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-400" />
+                Jumlah Scene (Masing-masing scene = 10 Detik)
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={sceneCount}
+                  onChange={(e) => setSceneCount(parseInt(e.target.value))}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+                <span className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl font-bold text-indigo-400 min-w-[120px] text-center">
+                  {sceneCount} Scene
+                  <span className="block text-xs font-normal text-slate-500">{sceneCount * 10} Detik Total</span>
+                </span>
+              </div>
+            </div>
+
+            {error && (
+              <div className="md:col-span-2 flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20 animate-bounce">
+                <AlertCircle className="w-5 h-5" />
+                <p className="text-sm">{error}</p>
+              </div>
+            )}
+
+            <div className="md:col-span-2 pt-2">
+              <button
+                type="submit"
+                disabled={isGenerating}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Sedang Meracik Prompt AI...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Generate Editor Prompt
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Results Section */}
+        {result && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            
+            {/* Header Result */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-indigo-500/10 border border-indigo-500/20 p-5 rounded-2xl">
+              <div>
+                <h2 className="text-xl font-bold text-white">{result.title}</h2>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded border border-purple-500/30">
+                    Niche: {niche}
+                  </span>
+                  <span className="text-xs text-indigo-300 px-2 py-1">
+                    Total Durasi: {result.scenes.length * 10} detik ({result.scenes.length} Scene)
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={copyAllPrompts}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 border border-indigo-400/30 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all w-full sm:w-auto justify-center shadow-lg shadow-indigo-600/15"
+              >
+                {copiedAll ? (
+                  <>
+                    <CheckCheck className="w-4 h-4 text-green-300" />
+                    <span>Semua Tersalin!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Salin Semua Scene</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Scenes List */}
+            <div className="space-y-6">
+              {result.scenes.map((scene, idx) => {
+                const startSeconds = (scene.sceneNumber - 1) * 10;
+                const endSeconds = scene.sceneNumber * 10;
+                const timeStr = `0:${String(startSeconds).padStart(2, '0')} - 0:${String(endSeconds).padStart(2, '0')}`;
+
+                return (
+                  <div key={idx} className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg transition-all hover:border-slate-600 relative group">
+                    
+                    {/* Scene Card Header */}
+                    <div className="bg-slate-800/80 border-b border-slate-700 px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-md">
+                          Scene {scene.sceneNumber}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-slate-300 text-sm font-mono bg-slate-900 px-2.5 py-1 rounded">
+                          <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                          {timeStr}
+                        </span>
+                        <span className="font-semibold text-slate-200 ml-1">
+                          {scene.title}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={() => copySinglePrompt(scene, idx)}
+                        className="p-2.5 bg-slate-900 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-all flex items-center gap-2 text-xs font-medium w-full sm:w-auto justify-center"
+                        title="Salin Seluruh Detail Scene Ini"
+                      >
+                        {copiedIndex === idx ? (
+                          <>
+                            <CheckCheck className="w-4 h-4 text-green-400 animate-scale-up" />
+                            <span className="text-green-400">Scene {scene.sceneNumber} Tersalin!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            <span>Salin Satu Scene Ini</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Scene Body / Prompts */}
+                    <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      {/* Kolom Kiri: Visual & Kamera */}
+                      <div className="space-y-4">
+                        
+                        {/* Prompt Visual */}
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors relative group/field">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Video className="w-3.5 h-3.5" /> Prompt Visual
+                            </h4>
+                            <button 
+                              onClick={() => copyField(scene.visualPrompt, `${idx}-visual`)}
+                              className="text-slate-500 hover:text-white active:scale-90 transition-all p-1 hover:bg-slate-800 rounded"
+                              title="Salin Visual Saja"
+                            >
+                              {copiedField === `${idx}-visual` ? (
+                                <CheckCheck className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-300 leading-relaxed pr-2">{scene.visualPrompt}</p>
+                        </div>
+                        
+                        {/* Pergerakan Kamera */}
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors relative group/field">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Camera className="w-3.5 h-3.5" /> Pergerakan Kamera
+                            </h4>
+                            <button 
+                              onClick={() => copyField(scene.cameraMovement, `${idx}-camera`)}
+                              className="text-slate-500 hover:text-white active:scale-90 transition-all p-1 hover:bg-slate-800 rounded"
+                              title="Salin Kamera Saja"
+                            >
+                              {copiedField === `${idx}-camera` ? (
+                                <CheckCheck className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-300 leading-relaxed pr-2">{scene.cameraMovement}</p>
+                        </div>
+
+                      </div>
+
+                      {/* Kolom Ranan: Dialog, Teks & Audio */}
+                      <div className="space-y-4">
+                        
+                        {/* Dialog / Voiceover */}
+                        {(scene.dialog || scene.narration) && (
+                          <div className="bg-orange-950/15 p-4 rounded-xl border border-orange-900/30 hover:border-orange-800/40 transition-colors relative group/field">
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <MessageSquare className="w-3.5 h-3.5" /> Dialog / Voiceover (Naskah)
+                              </h4>
+                              <button 
+                                onClick={() => copyField(scene.dialog || scene.narration, `${idx}-dialog`)}
+                                className="text-slate-500 hover:text-orange-300 active:scale-90 transition-all p-1 hover:bg-orange-900/20 rounded"
+                                title="Salin Naskah Dialog Saja"
+                              >
+                                {copiedField === `${idx}-dialog` ? (
+                                  <CheckCheck className="w-4 h-4 text-green-400" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                            <p className="text-sm text-orange-100/90 leading-relaxed italic font-serif">
+                              "{scene.dialog || scene.narration}"
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Teks Layar (Overlay) */}
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors relative group/field">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-xs font-bold text-green-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Type className="w-3.5 h-3.5" /> Teks Layar (Overlay)
+                            </h4>
+                            <button 
+                              onClick={() => copyField(scene.textOverlay, `${idx}-text`)}
+                              className="text-slate-500 hover:text-white active:scale-90 transition-all p-1 hover:bg-slate-800 rounded"
+                              title="Salin Teks Saja"
+                            >
+                              {copiedField === `${idx}-text` ? (
+                                <CheckCheck className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-200 font-semibold leading-relaxed">
+                            "{scene.textOverlay}"
+                          </p>
+                        </div>
+
+                        {/* Audio & SFX */}
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors relative group/field">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Volume2 className="w-3.5 h-3.5" /> Audio & SFX
+                            </h4>
+                            <button 
+                              onClick={() => copyField(scene.audioSfx, `${idx}-audio`)}
+                              className="text-slate-500 hover:text-white active:scale-90 transition-all p-1 hover:bg-slate-800 rounded"
+                              title="Salin Audio Saja"
+                            >
+                              {copiedField === `${idx}-audio` ? (
+                                <CheckCheck className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-300 leading-relaxed pr-2">
+                            {scene.audioSfx}
+                          </p>
+                        </div>
+
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
